@@ -17,8 +17,33 @@
             <nav>
                 <ul>
                     <li><a href="/">Home</a></li>
-                    <li><a href="/login">Login</a></li>
-                    <li><a href="/register" class="btn btn-primary">Sign Up</a></li>
+                    {% if session.user %}
+                        {% if session.role == 'milkman' %}
+                            <li><a href="/milkman_dashboard">Dashboard</a></li>
+                        {% elif session.role == 'customer' %}
+                            <li><a href="/customer_dashboard">Dashboard</a></li>
+                        {% else %}
+                            <li><a href="/dashboard">Dashboard</a></li>
+                        {% endif %}
+                        <li><a href="/logout" class="btn btn-secondary">Logout</a></li>
+                    {% else %}
+                        <li class="dropdown">
+                            <a href="#" class="dropdown-toggle">Login</a>
+                            <div class="dropdown-menu">
+                                <a href="/login">Admin Login</a>
+                                <a href="/login_milkman">Milkman Login</a>
+                                <a href="/login_customer">Customer Login</a>
+                            </div>
+                        </li>
+                        <li class="dropdown">
+                            <a href="#" class="dropdown-toggle btn btn-primary">Sign Up</a>
+                            <div class="dropdown-menu">
+                                <a href="/register">Admin Sign Up</a>
+                                <a href="/register_milkman">Milkman Sign Up</a>
+                                <a href="/register_customer">Customer Sign Up</a>
+                            </div>
+                        </li>
+                    {% endif %}
                 </ul>
             </nav>
         </div>

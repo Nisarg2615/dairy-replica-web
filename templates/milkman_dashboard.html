@@ -1,0 +1,63 @@
+
+{% extends "base.html" %}
+
+{% block title %}Milkman Dashboard - DairyDash Connect{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+    <div class="container">
+        <div class="dashboard-header">
+            <h1>Milkman Dashboard</h1>
+            <p>Welcome, {{ milkman.name }}</p>
+            <div class="milkman-id-display">
+                <h3>Your Milkman ID: <span class="highlighted-id">{{ milkman.milkman_id }}</span></h3>
+                <p class="id-hint">Share this ID with your customers so they can connect with you.</p>
+            </div>
+            <a href="/logout" class="btn btn-secondary">Logout</a>
+        </div>
+        
+        <div class="dashboard-content">
+            <div class="dashboard-card">
+                <h2>Next Day Orders</h2>
+                {% if orders %}
+                    <div class="orders-table-container">
+                        <table class="orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Customer Name</th>
+                                    <th>Address</th>
+                                    <th>Brand</th>
+                                    <th>Quantity (L)</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in orders %}
+                                <tr>
+                                    <td>{{ order.customer_name }}</td>
+                                    <td>{{ order.address }}</td>
+                                    <td>{{ order.brand }}</td>
+                                    <td>{{ order.quantity }}</td>
+                                    <td>{{ order.notes }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="no-orders">No orders for tomorrow yet.</p>
+                {% endif %}
+            </div>
+            
+            <div class="dashboard-card">
+                <h2>Your Customers</h2>
+                {% if milkman.customers %}
+                    <p>You have {{ milkman.customers|length }} connected customers.</p>
+                {% else %}
+                    <p>You don't have any connected customers yet. Share your Milkman ID with potential customers so they can connect with you.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

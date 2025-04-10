@@ -84,6 +84,20 @@ img {
     background-color: var(--light-color);
 }
 
+.btn-danger {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #dc2626;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
 .btn-block {
     display: block;
     width: 100%;
@@ -115,6 +129,7 @@ nav ul {
 
 nav ul li {
     margin-left: 1.5rem;
+    position: relative;
 }
 
 nav ul li a {
@@ -124,6 +139,50 @@ nav ul li a {
 
 nav ul li a:hover {
     color: var(--primary-color);
+}
+
+/* Dropdown Menu */
+.dropdown {
+    position: relative;
+}
+
+.dropdown-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.dropdown-toggle::after {
+    content: "▼";
+    font-size: 0.7rem;
+    margin-left: 0.5rem;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: var(--box-shadow);
+    min-width: 160px;
+    z-index: 10;
+    display: none;
+}
+
+.dropdown-menu a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.dropdown-menu a:hover {
+    background-color: var(--light-grey);
+    color: var(--primary-color);
+}
+
+.dropdown:hover .dropdown-menu {
+    display: block;
 }
 
 /* Hero Section */
@@ -282,12 +341,19 @@ nav ul li a:hover {
     font-weight: 500;
 }
 
-.form-group input {
+.form-group input,
+.form-group select,
+.form-group textarea {
     width: 100%;
     padding: 0.75rem;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     font-size: 1rem;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
 }
 
 .form-hint {
@@ -305,6 +371,11 @@ nav ul li a:hover {
 .checkbox-container {
     display: flex;
     align-items: center;
+}
+
+.checkbox-container input[type="checkbox"] {
+    width: auto;
+    margin-right: 0.5rem;
 }
 
 .checkbox-text {
@@ -356,6 +427,21 @@ nav ul li a:hover {
     padding: 2rem;
     border-radius: 8px;
     box-shadow: var(--box-shadow);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dashboard-header h1 {
+    margin-right: auto;
+    margin-bottom: 0.5rem;
+}
+
+.dashboard-header p {
+    width: 100%;
+    margin-bottom: 1rem;
+    color: var(--grey-color);
 }
 
 .dashboard-card {
@@ -364,6 +450,211 @@ nav ul li a:hover {
     border-radius: 8px;
     box-shadow: var(--box-shadow);
     margin-bottom: 2rem;
+}
+
+.dashboard-content {
+    margin-bottom: 2rem;
+}
+
+.dashboard-nav {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: var(--box-shadow);
+    transition: transform 0.3s ease;
+    color: var(--text-color);
+}
+
+.nav-item:hover {
+    transform: translateY(-5px);
+    color: var(--primary-color);
+}
+
+.nav-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+/* Milkman Dashboard */
+.milkman-id-display {
+    background-color: var(--light-color);
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    border-left: 4px solid var(--primary-color);
+}
+
+.highlighted-id {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.id-hint {
+    font-size: 0.875rem;
+    color: var(--grey-color);
+    margin-top: 0.5rem;
+}
+
+.orders-table-container {
+    overflow-x: auto;
+}
+
+.orders-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.orders-table th,
+.orders-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.orders-table th {
+    background-color: var(--light-grey);
+    font-weight: 600;
+}
+
+.orders-table tr:hover {
+    background-color: var(--light-grey);
+}
+
+.no-orders {
+    text-align: center;
+    padding: 2rem;
+    color: var(--grey-color);
+}
+
+/* Customer Dashboard */
+.milkman-info,
+.preference-info {
+    margin-top: 1rem;
+}
+
+.milkman-info p,
+.preference-info p {
+    margin-bottom: 0.5rem;
+}
+
+.preference-info .btn {
+    margin-top: 1rem;
+}
+
+/* Milk Preference Page */
+.order-note {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: var(--light-color);
+    border-radius: 4px;
+    border-left: 4px solid var(--primary-color);
+}
+
+/* Calendar View */
+.calendar-header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.calendar {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+    text-align: center;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.5rem;
+    position: relative;
+}
+
+.day-number {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    font-weight: 600;
+}
+
+.day-info {
+    position: absolute;
+    bottom: 0.25rem;
+    left: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.calendar-day.delivered {
+    background-color: #bbf7d0;
+    border-color: var(--success-color);
+}
+
+.calendar-day.ordered {
+    background-color: #bfdbfe;
+    border-color: var(--primary-color);
+}
+
+.calendar-day.not_ordered {
+    background-color: #f1f5f9;
+}
+
+.calendar-legend {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+}
+
+.legend-color {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 2px;
+    margin-right: 0.5rem;
+}
+
+.legend-color.delivered {
+    background-color: #bbf7d0;
+    border: 1px solid var(--success-color);
+}
+
+.legend-color.ordered {
+    background-color: #bfdbfe;
+    border: 1px solid var(--primary-color);
+}
+
+.legend-color.not_ordered {
+    background-color: #f1f5f9;
+    border: 1px solid var(--border-color);
 }
 
 /* Footer */
@@ -400,5 +691,28 @@ footer {
     
     .feature-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .calendar-days {
+        grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+    }
+    
+    .calendar-weekdays {
+        grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+    }
+    
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .dashboard-header .btn {
+        margin-top: 1rem;
+    }
+    
+    .calendar-legend {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
     }
 }
