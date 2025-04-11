@@ -12,6 +12,13 @@
                 <p>Log in to your customer account to manage your milk deliveries.</p>
             </div>
             <div class="auth-form">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
                 <form method="post" action="/login_customer">
                     <div class="form-group">
                         <label for="phone">Phone Number</label>

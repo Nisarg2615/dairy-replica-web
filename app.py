@@ -1,6 +1,7 @@
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import os
+import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import random
@@ -8,17 +9,83 @@ import random
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Simple in-memory databases (would use a real database in production)
-users = {}
-milkmen = {}
+# Available milk brands
 milk_brands = ["Premium", "Regular", "Toned", "Double-Toned", "Organic"]
-orders = {}
-deliveries = {}
+
+# Database setup
+def get_db_connection():
+    conn = sqlite3.connect('dairy_dash.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db_connection()
+    
+    # Create users table
+    conn.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        email TEXT UNIQUE,
+        phone TEXT UNIQUE,
+        password TEXT,
+        farm_name TEXT,
+        address TEXT,
+        milkman_id TEXT,
+        role TEXT,
+        preferences TEXT DEFAULT '{"brand":"Premium","quantity":1}'
+    )
+    ''')
+    
+    # Create milkmen table
+    conn.execute('''
+    CREATE TABLE IF NOT EXISTS milkmen (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        phone TEXT UNIQUE,
+        password TEXT,
+        milkman_id TEXT UNIQUE
+    )
+    ''')
+    
+    # Create orders table
+    conn.execute('''
+    CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_phone TEXT,
+        delivery_date TEXT,
+        brand TEXT,
+        quantity REAL,
+        notes TEXT,
+        UNIQUE(customer_phone, delivery_date)
+    )
+    ''')
+    
+    # Create deliveries table
+    conn.execute('''
+    CREATE TABLE IF NOT EXISTS deliveries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_phone TEXT,
+        delivery_date TEXT,
+        status TEXT,
+        UNIQUE(customer_phone, delivery_date)
+    )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+# Initialize database on startup
+init_db()
 
 def generate_milkman_id():
     while True:
         milkman_id = str(random.randint(100000, 999999))
-        if milkman_id not in milkmen:
+        conn = get_db_connection()
+        existing = conn.execute('SELECT milkman_id FROM milkmen WHERE milkman_id = ?', 
+                             (milkman_id,)).fetchone()
+        conn.close()
+        if existing is None:
             return milkman_id
 
 @app.route('/')
@@ -38,17 +105,19 @@ def register():
             flash('All fields are required', 'error')
             return render_template('register.html')
         
-        if email in users:
+        conn = get_db_connection()
+        existing_user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        
+        if existing_user:
+            conn.close()
             flash('Email already registered', 'error')
             return render_template('register.html')
         
         # Store user
-        users[email] = {
-            'username': username,
-            'password': generate_password_hash(password),
-            'farm_name': farm_name,
-            'role': 'admin'
-        }
+        conn.execute('INSERT INTO users (username, email, password, farm_name, role) VALUES (?, ?, ?, ?, ?)',
+                  (username, email, generate_password_hash(password), farm_name, 'admin'))
+        conn.commit()
+        conn.close()
         
         flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('login'))
@@ -67,7 +136,11 @@ def register_milkman():
             flash('All fields are required', 'error')
             return render_template('register_milkman.html')
         
-        if phone in milkmen:
+        conn = get_db_connection()
+        existing_milkman = conn.execute('SELECT * FROM milkmen WHERE phone = ?', (phone,)).fetchone()
+        
+        if existing_milkman:
+            conn.close()
             flash('Phone number already registered', 'error')
             return render_template('register_milkman.html')
         
@@ -75,13 +148,10 @@ def register_milkman():
         milkman_id = generate_milkman_id()
         
         # Store milkman
-        milkmen[phone] = {
-            'name': name,
-            'password': generate_password_hash(password),
-            'milkman_id': milkman_id,
-            'customers': [],
-            'role': 'milkman'
-        }
+        conn.execute('INSERT INTO milkmen (name, phone, password, milkman_id) VALUES (?, ?, ?, ?)',
+                  (name, phone, generate_password_hash(password), milkman_id))
+        conn.commit()
+        conn.close()
         
         session['user'] = phone
         session['role'] = 'milkman'
@@ -104,38 +174,33 @@ def register_customer():
             flash('All fields are required', 'error')
             return render_template('register_customer.html')
         
-        if phone in users:
+        conn = get_db_connection()
+        existing_customer = conn.execute('SELECT * FROM users WHERE phone = ?', (phone,)).fetchone()
+        
+        if existing_customer:
+            conn.close()
             flash('Phone number already registered', 'error')
             return render_template('register_customer.html')
         
         # Validate milkman ID
-        milkman_found = False
-        milkman_phone = None
-        for phone_key, milkman in milkmen.items():
-            if milkman['milkman_id'] == milkman_id:
-                milkman_found = True
-                milkman_phone = phone_key
-                break
+        milkman = conn.execute('SELECT * FROM milkmen WHERE milkman_id = ?', (milkman_id,)).fetchone()
         
-        if not milkman_found:
+        if not milkman:
+            conn.close()
             flash('Invalid Milkman ID', 'error')
             return render_template('register_customer.html')
         
-        # Store customer
-        users[phone] = {
-            'name': name,
-            'password': generate_password_hash(password),
-            'address': address,
-            'milkman_id': milkman_id,
-            'role': 'customer',
-            'preferences': {
-                'brand': milk_brands[0],
-                'quantity': 1,
-            }
-        }
+        # Store customer with default preferences
+        import json
+        default_preferences = json.dumps({"brand": milk_brands[0], "quantity": 1})
         
-        # Add customer to milkman's customer list
-        milkmen[milkman_phone]['customers'].append(phone)
+        conn.execute('''
+            INSERT INTO users (username, phone, password, address, milkman_id, role, preferences) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (name, phone, generate_password_hash(password), address, milkman_id, 'customer', default_preferences))
+        
+        conn.commit()
+        conn.close()
         
         session['user'] = phone
         session['role'] = 'customer'
@@ -150,11 +215,13 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        user = users.get(email)
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        conn.close()
         
         if user and check_password_hash(user['password'], password):
             session['user'] = email
-            session['role'] = user.get('role', 'admin')
+            session['role'] = user['role']
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -168,7 +235,9 @@ def login_milkman():
         phone = request.form.get('phone')
         password = request.form.get('password')
         
-        milkman = milkmen.get(phone)
+        conn = get_db_connection()
+        milkman = conn.execute('SELECT * FROM milkmen WHERE phone = ?', (phone,)).fetchone()
+        conn.close()
         
         if milkman and check_password_hash(milkman['password'], password):
             session['user'] = phone
@@ -186,9 +255,12 @@ def login_customer():
         phone = request.form.get('phone')
         password = request.form.get('password')
         
-        customer = users.get(phone)
+        conn = get_db_connection()
+        customer = conn.execute('SELECT * FROM users WHERE phone = ? AND role = ?', 
+                             (phone, 'customer')).fetchone()
+        conn.close()
         
-        if customer and customer.get('role') == 'customer' and check_password_hash(customer['password'], password):
+        if customer and check_password_hash(customer['password'], password):
             session['user'] = phone
             session['role'] = 'customer'
             flash('Login successful!', 'success')
@@ -203,13 +275,16 @@ def dashboard():
     if 'user' not in session:
         return redirect(url_for('login'))
     
-    user = users.get(session['user'])
     role = session.get('role', 'admin')
     
     if role == 'milkman':
         return redirect(url_for('milkman_dashboard'))
     elif role == 'customer':
         return redirect(url_for('customer_dashboard'))
+    
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE email = ?', (session['user'],)).fetchone()
+    conn.close()
     
     return render_template('dashboard.html', user=user)
 
@@ -218,37 +293,50 @@ def milkman_dashboard():
     if 'user' not in session or session.get('role') != 'milkman':
         return redirect(url_for('login_milkman'))
     
-    milkman = milkmen.get(session['user'])
+    conn = get_db_connection()
+    milkman = conn.execute('SELECT * FROM milkmen WHERE phone = ?', (session['user'],)).fetchone()
     
     # Get next day's date
     next_day = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
     
     # Get all orders for next day from all linked customers
     next_day_orders = []
-    for customer_phone in milkman['customers']:
-        customer = users.get(customer_phone)
-        if customer:
-            # Check if there's a specific order for the next day
-            customer_orders = orders.get(customer_phone, {})
-            order = customer_orders.get(next_day)
-            
-            if order:
-                next_day_orders.append({
-                    'customer_name': customer['name'],
-                    'address': customer['address'],
-                    'brand': order['brand'],
-                    'quantity': order['quantity'],
-                    'notes': order.get('notes', '')
-                })
-            else:
-                # Use default preferences if no specific order
-                next_day_orders.append({
-                    'customer_name': customer['name'],
-                    'address': customer['address'],
-                    'brand': customer['preferences']['brand'],
-                    'quantity': customer['preferences']['quantity'],
-                    'notes': ''
-                })
+    
+    # Get all customers linked to this milkman
+    customers = conn.execute('''
+        SELECT * FROM users 
+        WHERE milkman_id = ? AND role = 'customer'
+    ''', (milkman['milkman_id'],)).fetchall()
+    
+    for customer in customers:
+        import json
+        preferences = json.loads(customer['preferences'])
+        
+        # Check if there's a specific order for the next day
+        order = conn.execute('''
+            SELECT * FROM orders 
+            WHERE customer_phone = ? AND delivery_date = ?
+        ''', (customer['phone'], next_day)).fetchone()
+        
+        if order:
+            next_day_orders.append({
+                'customer_name': customer['username'],
+                'address': customer['address'],
+                'brand': order['brand'],
+                'quantity': order['quantity'],
+                'notes': order['notes']
+            })
+        else:
+            # Use default preferences if no specific order
+            next_day_orders.append({
+                'customer_name': customer['username'],
+                'address': customer['address'],
+                'brand': preferences['brand'],
+                'quantity': preferences['quantity'],
+                'notes': ''
+            })
+    
+    conn.close()
     
     return render_template('milkman_dashboard.html', milkman=milkman, orders=next_day_orders)
 
@@ -257,14 +345,15 @@ def customer_dashboard():
     if 'user' not in session or session.get('role') != 'customer':
         return redirect(url_for('login_customer'))
     
-    customer = users.get(session['user'])
+    conn = get_db_connection()
+    customer = conn.execute('SELECT * FROM users WHERE phone = ?', (session['user'],)).fetchone()
     
     # Find milkman name
-    milkman_name = "Unknown"
-    for phone, milkman in milkmen.items():
-        if milkman['milkman_id'] == customer['milkman_id']:
-            milkman_name = milkman['name']
-            break
+    milkman = conn.execute('SELECT * FROM milkmen WHERE milkman_id = ?', 
+                        (customer['milkman_id'],)).fetchone()
+    
+    milkman_name = milkman['name'] if milkman else "Unknown"
+    conn.close()
     
     return render_template('customer_dashboard.html', customer=customer, milkman_name=milkman_name)
 
@@ -274,7 +363,11 @@ def milk_preference():
         return redirect(url_for('login_customer'))
     
     customer_phone = session['user']
-    customer = users.get(customer_phone)
+    conn = get_db_connection()
+    customer = conn.execute('SELECT * FROM users WHERE phone = ?', (customer_phone,)).fetchone()
+    
+    import json
+    preferences = json.loads(customer['preferences'])
     
     if request.method == 'POST':
         brand = request.form.get('brand')
@@ -284,24 +377,45 @@ def milk_preference():
         
         # Update default preferences if selected
         if request.form.get('update_default') == 'on':
-            customer['preferences']['brand'] = brand
-            customer['preferences']['quantity'] = quantity
+            new_preferences = json.dumps({"brand": brand, "quantity": quantity})
+            conn.execute('UPDATE users SET preferences = ? WHERE phone = ?', 
+                      (new_preferences, customer_phone))
         
         # Save specific order for the date
-        if not date in orders:
-            orders[customer_phone] = {}
+        try:
+            conn.execute('''
+                INSERT INTO orders (customer_phone, delivery_date, brand, quantity, notes) 
+                VALUES (?, ?, ?, ?, ?)
+            ''', (customer_phone, date, brand, quantity, notes))
+        except sqlite3.IntegrityError:
+            # Update existing order for this date
+            conn.execute('''
+                UPDATE orders 
+                SET brand = ?, quantity = ?, notes = ? 
+                WHERE customer_phone = ? AND delivery_date = ?
+            ''', (brand, quantity, notes, customer_phone, date))
         
-        orders[customer_phone][date] = {
-            'brand': brand,
-            'quantity': quantity,
-            'notes': notes
-        }
-        
+        conn.commit()
         flash('Milk preference updated successfully!', 'success')
         return redirect(url_for('milk_preference'))
     
     # Get all orders for this customer
-    customer_orders = orders.get(customer_phone, {})
+    customer_orders = {}
+    orders = conn.execute('SELECT * FROM orders WHERE customer_phone = ? ORDER BY delivery_date', 
+                       (customer_phone,)).fetchall()
+    
+    for order in orders:
+        customer_orders[order['delivery_date']] = {
+            'brand': order['brand'],
+            'quantity': order['quantity'],
+            'notes': order['notes']
+        }
+    
+    conn.close()
+    
+    # Update the customer object with parsed preferences for template
+    customer = dict(customer)
+    customer['preferences'] = preferences
     
     return render_template('milk_preference.html', 
                           customer=customer, 
@@ -314,7 +428,13 @@ def calendar_view():
         return redirect(url_for('login_customer'))
     
     customer_phone = session['user']
-    customer = users.get(customer_phone)
+    conn = get_db_connection()
+    customer = conn.execute('SELECT * FROM users WHERE phone = ?', (customer_phone,)).fetchone()
+    
+    import json
+    preferences = json.loads(customer['preferences'])
+    customer = dict(customer)
+    customer['preferences'] = preferences
     
     # Get the current month and year
     today = datetime.now()
@@ -331,8 +451,25 @@ def calendar_view():
     num_days = last_day.day
     
     # Get all delivery data for this customer for the current month
-    customer_deliveries = deliveries.get(customer_phone, {})
-    customer_orders = orders.get(customer_phone, {})
+    deliveries_data = conn.execute('''
+        SELECT * FROM deliveries 
+        WHERE customer_phone = ? AND delivery_date LIKE ?
+    ''', (customer_phone, f"{year}-{month:02d}-%")).fetchall()
+    
+    orders_data = conn.execute('''
+        SELECT * FROM orders 
+        WHERE customer_phone = ? AND delivery_date LIKE ?
+    ''', (customer_phone, f"{year}-{month:02d}-%")).fetchall()
+    
+    # Create dictionaries for easier lookup
+    customer_deliveries = {row['delivery_date']: row for row in deliveries_data}
+    customer_orders = {row['delivery_date']: {
+        'brand': row['brand'],
+        'quantity': row['quantity'],
+        'notes': row['notes']
+    } for row in orders_data}
+    
+    conn.close()
     
     # Create calendar data
     calendar_data = []
@@ -367,39 +504,30 @@ def update_profile():
         return redirect(url_for('login_customer'))
     
     customer_phone = session['user']
-    customer = users.get(customer_phone)
+    conn = get_db_connection()
+    customer = conn.execute('SELECT * FROM users WHERE phone = ?', (customer_phone,)).fetchone()
     
     if request.method == 'POST':
         address = request.form.get('address')
         milkman_id = request.form.get('milkman_id')
         
         # Validate milkman ID
-        milkman_found = False
-        new_milkman_phone = None
-        for phone, milkman in milkmen.items():
-            if milkman['milkman_id'] == milkman_id:
-                milkman_found = True
-                new_milkman_phone = phone
-                break
+        milkman = conn.execute('SELECT * FROM milkmen WHERE milkman_id = ?', (milkman_id,)).fetchone()
         
-        if not milkman_found:
+        if not milkman:
+            conn.close()
             flash('Invalid Milkman ID', 'error')
             return redirect(url_for('update_profile'))
         
-        # Remove customer from old milkman's list
-        for phone, milkman in milkmen.items():
-            if customer_phone in milkman['customers']:
-                milkman['customers'].remove(customer_phone)
-        
-        # Add customer to new milkman's list
-        milkmen[new_milkman_phone]['customers'].append(customer_phone)
-        
         # Update customer profile
-        customer['address'] = address
-        customer['milkman_id'] = milkman_id
+        conn.execute('UPDATE users SET address = ?, milkman_id = ? WHERE phone = ?', 
+                  (address, milkman_id, customer_phone))
+        conn.commit()
         
         flash('Profile updated successfully!', 'success')
         return redirect(url_for('customer_dashboard'))
+    
+    conn.close()
     
     return render_template('update_profile.html', customer=customer)
 
@@ -409,7 +537,6 @@ def cancel_order(date):
         return redirect(url_for('login_customer'))
     
     customer_phone = session['user']
-    customer_orders = orders.get(customer_phone, {})
     
     # Check if the order is for a future date
     order_date = datetime.strptime(date, '%Y-%m-%d')
@@ -419,8 +546,13 @@ def cancel_order(date):
         return redirect(url_for('milk_preference'))
     
     # Remove the order
-    if date in customer_orders:
-        del customer_orders[date]
+    conn = get_db_connection()
+    result = conn.execute('DELETE FROM orders WHERE customer_phone = ? AND delivery_date = ?', 
+                      (customer_phone, date))
+    conn.commit()
+    conn.close()
+    
+    if result.rowcount > 0:
         flash('Order cancelled successfully!', 'success')
     else:
         flash('Order not found', 'error')
