@@ -1,21 +1,28 @@
 
-{% extends "base.html" %}
-
-{% block title %}Dashboard - DairyDash Connect{% endblock %}
-
-{% block content %}
-<section class="dashboard">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - DairyDash Connect</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
     <div class="container">
         <div class="dashboard-header">
-            <h1>Welcome to your Dashboard, {{ username }}</h1>
+            <h1>Welcome, {{ username }}!</h1>
             <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
         </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
         <div class="dashboard-content">
-            <div class="dashboard-card">
-                <h2>Get Started</h2>
-                <p>This is your personal dashboard. We'll add more features soon!</p>
-            </div>
+            <p>This is your dashboard. More features coming soon!</p>
         </div>
     </div>
-</section>
-{% endblock %}
+</body>
+</html>

@@ -15,23 +15,19 @@ def get_db_connection():
 
 def init_db():
     conn = get_db_connection()
-    
-    # Create users table with expanded fields
     conn.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
         email TEXT UNIQUE,
-        phone TEXT UNIQUE,
         password TEXT,
-        role TEXT
+        role TEXT DEFAULT 'user'
     )
     ''')
-    
     conn.commit()
     conn.close()
 
-# Initialize database on startup
+# Initialize database
 init_db()
 
 @app.route('/')
@@ -50,20 +46,17 @@ def register():
             return render_template('register.html')
         
         conn = get_db_connection()
-        existing_user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-        
-        if existing_user:
-            conn.close()
+        try:
+            conn.execute('INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+                      (username, email, generate_password_hash(password)))
+            conn.commit()
+            flash('Registration successful! Please log in.', 'success')
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
             flash('Email already registered', 'error')
             return render_template('register.html')
-        
-        conn.execute('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
-                  (username, email, generate_password_hash(password), 'user'))
-        conn.commit()
-        conn.close()
-        
-        flash('Registration successful! Please log in.', 'success')
-        return redirect(url_for('login'))
+        finally:
+            conn.close()
     
     return render_template('register.html')
 
@@ -83,7 +76,7 @@ def login():
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard'))
         else:
-            flash('Invalid credentials', 'error')
+            flash('Invalid email or password', 'error')
     
     return render_template('login.html')
 
@@ -91,12 +84,12 @@ def login():
 def dashboard():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    
-    return render_template('dashboard.html', username=session['username'])
+    return render_template('dashboard.html', username=session.get('username'))
 
 @app.route('/logout')
 def logout():
     session.clear()
+    flash('You have been logged out', 'success')
     return redirect(url_for('home'))
 
 if __name__ == '__main__':
