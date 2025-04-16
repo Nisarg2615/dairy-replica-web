@@ -16,7 +16,7 @@ def get_db_connection():
 def init_db():
     conn = get_db_connection()
     
-    # Create users table
+    # Create users table with expanded fields
     conn.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +24,6 @@ def init_db():
         email TEXT UNIQUE,
         phone TEXT UNIQUE,
         password TEXT,
-        farm_name TEXT,
         role TEXT
     )
     ''')
@@ -45,9 +44,8 @@ def register():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
-        farm_name = request.form.get('farm_name')
         
-        if not all([username, email, password, farm_name]):
+        if not all([username, email, password]):
             flash('All fields are required', 'error')
             return render_template('register.html')
         
@@ -59,8 +57,8 @@ def register():
             flash('Email already registered', 'error')
             return render_template('register.html')
         
-        conn.execute('INSERT INTO users (username, email, password, farm_name, role) VALUES (?, ?, ?, ?, ?)',
-                  (username, email, generate_password_hash(password), farm_name, 'admin'))
+        conn.execute('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
+                  (username, email, generate_password_hash(password), 'user'))
         conn.commit()
         conn.close()
         
@@ -68,35 +66,6 @@ def register():
         return redirect(url_for('login'))
     
     return render_template('register.html')
-
-@app.route('/register_customer', methods=['GET', 'POST'])
-def register_customer():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        phone = request.form.get('phone')
-        password = request.form.get('password')
-        
-        if not all([name, phone, password]):
-            flash('All fields are required', 'error')
-            return render_template('register_customer.html')
-        
-        conn = get_db_connection()
-        existing_customer = conn.execute('SELECT * FROM users WHERE phone = ?', (phone,)).fetchone()
-        
-        if existing_customer:
-            conn.close()
-            flash('Phone number already registered', 'error')
-            return render_template('register_customer.html')
-        
-        conn.execute('INSERT INTO users (username, phone, password, role) VALUES (?, ?, ?, ?)',
-                  (name, phone, generate_password_hash(password), 'customer'))
-        conn.commit()
-        conn.close()
-        
-        flash('Registration successful! Please log in.', 'success')
-        return redirect(url_for('login_customer'))
-    
-    return render_template('register_customer.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -109,8 +78,8 @@ def login():
         conn.close()
         
         if user and check_password_hash(user['password'], password):
-            session['user'] = email
-            session['role'] = 'admin'
+            session['user_id'] = user['id']
+            session['username'] = user['username']
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -118,53 +87,16 @@ def login():
     
     return render_template('login.html')
 
-@app.route('/login_customer', methods=['GET', 'POST'])
-def login_customer():
-    if request.method == 'POST':
-        phone = request.form.get('phone')
-        password = request.form.get('password')
-        
-        conn = get_db_connection()
-        customer = conn.execute('SELECT * FROM users WHERE phone = ? AND role = ?', 
-                             (phone, 'customer')).fetchone()
-        conn.close()
-        
-        if customer and check_password_hash(customer['password'], password):
-            session['user'] = phone
-            session['role'] = 'customer'
-            flash('Login successful!', 'success')
-            return redirect(url_for('customer_dashboard'))
-        else:
-            flash('Invalid credentials', 'error')
-    
-    return render_template('login_customer.html')
-
 @app.route('/dashboard')
 def dashboard():
-    if 'user' not in session:
+    if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    conn = get_db_connection()
-    user = conn.execute('SELECT * FROM users WHERE email = ?', (session['user'],)).fetchone()
-    conn.close()
-    
-    return render_template('dashboard.html', user=user)
-
-@app.route('/customer_dashboard')
-def customer_dashboard():
-    if 'user' not in session or session.get('role') != 'customer':
-        return redirect(url_for('login_customer'))
-    
-    conn = get_db_connection()
-    customer = conn.execute('SELECT * FROM users WHERE phone = ?', (session['user'],)).fetchone()
-    conn.close()
-    
-    return render_template('customer_dashboard.html', customer=customer)
+    return render_template('dashboard.html', username=session['username'])
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
-    session.pop('role', None)
+    session.clear()
     return redirect(url_for('home'))
 
 if __name__ == '__main__':
