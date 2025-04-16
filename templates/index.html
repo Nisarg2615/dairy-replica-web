@@ -8,11 +8,17 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="container">
+    <div id="root">
         <h1>Welcome to DairyDash Connect</h1>
         <div class="auth-buttons">
-            <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
-            <a href="{{ url_for('register') }}" class="btn btn-primary">Sign Up</a>
+            <a href="{{ url_for('login') }}" class="btn btn-primary">Admin Login</a>
+            <a href="{{ url_for('login_customer') }}" class="btn btn-primary">Customer Login</a>
+            <a href="{{ url_for('login_milkman') }}" class="btn btn-primary">Milkman Login</a>
+        </div>
+        <div class="auth-links">
+            <p>New user? <a href="{{ url_for('register') }}">Register as Admin</a></p>
+            <p>New customer? <a href="{{ url_for('register_customer') }}">Register as Customer</a></p>
+            <p>New milkman? <a href="{{ url_for('register_milkman') }}">Register as Milkman</a></p>
         </div>
     </div>
 </body>
